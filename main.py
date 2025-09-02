@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.middleware.sessions import SessionMiddleware
 import secrets
 from pathlib import Path
 import csv
@@ -22,19 +23,21 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
 
 app = FastAPI()
 
+# Add session middleware for user-specific data
+app.add_middleware(SessionMiddleware, secret_key="your-secret-key-change-this-in-production")
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
 
-uploaded_file_path = None
+# Removed global uploaded_file_path - now using sessions
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request, credentials: HTTPBasicCredentials = Depends(authenticate)):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), credentials: HTTPBasicCredentials = Depends(authenticate)):
-    global uploaded_file_path
+async def upload_file(request: Request, file: UploadFile = File(...), credentials: HTTPBasicCredentials = Depends(authenticate)):
     if not file.filename or not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files allowed")
     content = await file.read()
@@ -50,7 +53,8 @@ async def upload_file(file: UploadFile = File(...), credentials: HTTPBasicCreden
     file_path = uploads_dir / original_name
     with open(file_path, "wb") as f:
         f.write(content)
-    uploaded_file_path = file_path
+    # Store file path in user's session
+    request.session["uploaded_file_path"] = str(file_path)
     # Process the file
     process_csv(file_path)
     return {"message": f"File {original_name} uploaded and processed"}
@@ -64,9 +68,11 @@ def process_csv(file_path: Path):
 
 
 @app.post("/ask")
-async def ask_question(question: str = Form(...), credentials: HTTPBasicCredentials = Depends(authenticate)):
-    if not uploaded_file_path:
+async def ask_question(request: Request, question: str = Form(...), credentials: HTTPBasicCredentials = Depends(authenticate)):
+    uploaded_file_path_str = request.session.get("uploaded_file_path")
+    if not uploaded_file_path_str:
         raise HTTPException(status_code=400, detail="No file uploaded")
+    uploaded_file_path = Path(uploaded_file_path_str)
     response = process_question(question, uploaded_file_path)
     # Save Q&A to log
     uploads_dir = Path("uploads")
