@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLP Fast</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Upload CSV and Ask Questions</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv" required>
+            <button type="submit">Upload</button>
+        </form>
+        <form id="questionForm">
+            <textarea id="question" name="question" placeholder="Ask a question about the uploaded file" rows="3"></textarea>
+            <button type="submit">Ask</button>
+        </form>
+        <textarea id="response" placeholder="Response will appear here" rows="10" readonly></textarea>
+        <button onclick="clearBoxes()">Clear</button>
+    </div>
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
